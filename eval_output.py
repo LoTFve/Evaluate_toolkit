@@ -236,30 +236,20 @@ def extract_text_answer(
     if question_class == QUESTION_CLASS_YES_NO:
         # Yes/No 题目：优先使用 ANSWER: 中的内容，但需要验证是否为 yes/no
         if answer_from_match:
-            # 检查 ANSWER: 中的内容是否包含 yes/no
-            yes_no_pattern = r'\b(yes|no|true|false)\b'
+            # 检查 ANSWER: 中的内容是否包含 yes/no（严格匹配，不处理 true/false）
+            yes_no_pattern = r'\b(yes|no)\b'
             match_in_answer = re.search(yes_no_pattern, answer_from_match, re.IGNORECASE)
             if match_in_answer:
                 matched = match_in_answer.group(1).lower()
-                # 标准化：true -> yes, false -> no
-                if matched == "true":
-                    return "yes"
-                if matched == "false":
-                    return "no"
                 return matched
             # 如果 ANSWER: 中有内容但没有 yes/no，返回 match 本身（不继续搜索）
             return answer_from_match
         
-        # 如果没有 ANSWER: 格式，尝试在整个文本中匹配
-        yes_no_pattern = r'\b(yes|no|true|false)\b'
+        # 如果没有 ANSWER: 格式，尝试在整个文本中匹配（严格匹配 yes/no）
+        yes_no_pattern = r'\b(yes|no)\b'
         match = re.search(yes_no_pattern, text, re.IGNORECASE)
         if match:
             matched = match.group(1).lower()
-            # 标准化：true -> yes, false -> no
-            if matched == "true":
-                return "yes"
-            if matched == "false":
-                return "no"
             return matched
         # 如果没找到匹配，返回空字符串（不继续 fallback）
         return ""

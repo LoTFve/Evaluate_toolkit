@@ -1,0 +1,7 @@
+# Log files
+*.log
+**/*.log
+
+# JSON files
+*.json
+**/*.json

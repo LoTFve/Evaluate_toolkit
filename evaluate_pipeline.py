@@ -209,9 +209,9 @@ def evaluate_pipeline(input_dir: str):
     print("\n检查必需文件...")
     for name, path in required_files.items():
         if os.path.exists(path):
-            print(f"  ✓ {name}: {path}")
+            print(f"  [OK] {name}: {path}")
         else:
-            print(f"  ✗ {name}: {path} (不存在)")
+            print(f"  [X] {name}: {path} (不存在)")
     
     results = {}
     
@@ -234,7 +234,7 @@ def evaluate_pipeline(input_dir: str):
     print("评估流水线执行总结")
     print("=" * 80)
     for step, success in results.items():
-        status = "✓ 成功" if success else "✗ 失败/跳过"
+        status = "[OK] 成功" if success else "[X] 失败/跳过"
         print(f"  {step}: {status}")
     print("=" * 80)
     
@@ -251,7 +251,7 @@ def evaluate_pipeline(input_dir: str):
     for filename in output_files:
         filepath = os.path.join(input_path, filename)
         if os.path.exists(filepath):
-            print(f"  ✓ {filename}")
+            print(f"  [OK] {filename}")
         else:
             print(f"  - {filename} (未生成)")
 

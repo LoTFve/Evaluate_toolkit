@@ -225,7 +225,7 @@ def extract_text_answer(
             text,
         )
     
-    # 如果找到了 ANSWER: 格式，先提取出来，但要根据题目类型进行验证
+    # 如果找到了匹配的答案，先提取出来，但要根据题目类型进行验证
     answer_from_match = None
     if match:
         answer_from_match = match.group(1).strip()
@@ -234,15 +234,15 @@ def extract_text_answer(
     
     # 根据题目类型进行智能提取
     if question_class == QUESTION_CLASS_YES_NO:
-        # Yes/No 题目：优先使用 ANSWER: 中的内容，但需要验证是否为 yes/no
+        # Yes/No 题目：优先使用匹配的答案，但需要验证是否为 yes/no
         if answer_from_match:
-            # 检查 ANSWER: 中的内容是否包含 yes/no（严格匹配，不处理 true/false）
+            # 检查匹配的答案是否包含 yes/no（严格匹配，不处理 true/false）
             yes_no_pattern = r'\b(yes|no)\b'
             match_in_answer = re.search(yes_no_pattern, answer_from_match, re.IGNORECASE)
             if match_in_answer:
                 matched = match_in_answer.group(1).lower()
                 return matched
-            # 如果 ANSWER: 中有内容但没有 yes/no，返回 match 本身（不继续搜索）
+            # 如果匹配的答案中没有 yes/no，返回匹配的答案本身（不继续搜索）
             return answer_from_match
         
         # 如果没有 ANSWER: 格式，尝试在整个文本中匹配（严格匹配 yes/no）
@@ -257,14 +257,14 @@ def extract_text_answer(
     elif question_class == QUESTION_CLASS_NUMERIC:
         # 数值题目：优先使用 ANSWER: 中的内容，但需要验证是否为数值
         if answer_from_match:
-            # 检查 ANSWER: 中的内容是否包含数值
+            # 检查匹配的答案是否包含数值
             num_match_in_answer = re.search(r'-?\d+\.?\d*(?:[eE][+-]?\d+)?', answer_from_match)
             if num_match_in_answer:
                 return num_match_in_answer.group()
-            # 如果 ANSWER: 中有内容但没有数值，返回 match 本身（不继续搜索）
+            # 如果匹配的答案中没有数值，返回匹配的答案本身（不继续搜索）
             return answer_from_match
         
-        # 如果没有 ANSWER: 格式，从最后50个字符中提取数值
+        # 如果没有匹配到答案，从最后50个字符中提取数值
         last_50_chars = text[-50:] if len(text) > 50 else text
         num_match = re.search(r'-?\d+\.?\d*(?:[eE][+-]?\d+)?', last_50_chars)
         if num_match:
@@ -272,7 +272,7 @@ def extract_text_answer(
         # 如果没找到匹配，返回空字符串（不继续 fallback）
         return ""
     
-    # 对于未知类型的题目，如果找到了 ANSWER: 格式，直接返回
+    # 对于未知类型的题目，如果找到了匹配的答案，直接返回
     if answer_from_match:
         return answer_from_match
     

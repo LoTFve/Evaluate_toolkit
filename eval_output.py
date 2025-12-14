@@ -447,7 +447,8 @@ def _print_mismatch_info(
     expected: str,
     predicted: str | set[str],
     text_snippet: str,
-    metric_name: str | None = None
+    metric_name: str | None = None,
+    verbose: bool = False
 ) -> None:
     """打印答案不匹配的信息。
     
@@ -457,7 +458,11 @@ def _print_mismatch_info(
         predicted: 预测答案
         text_snippet: 答案文本片段（最后50字符）
         metric_name: 评估指标名称（可选）
+        verbose: 是否输出打印信息（默认 False）
     """
+    if not verbose:
+        return
+    
     if metric_name:
         print(f"[行 {line_num}] 答案不匹配 ({metric_name}):")
     else:
@@ -468,11 +473,12 @@ def _print_mismatch_info(
     print("")
 
 
-def process_line(record: dict[str, Any]) -> tuple[float, dict[str, Any]]:
+def process_line(record: dict[str, Any], verbose: bool = False) -> tuple[float, dict[str, Any]]:
     """处理单行记录，返回正确率和详细信息。
     
     Args:
         record: 包含答案和期望答案的记录字典
+        verbose: 是否输出打印信息（默认 False）
         
     Returns:
         元组：(正确率, 详细信息字典)
@@ -519,7 +525,7 @@ def process_line(record: dict[str, Any]) -> tuple[float, dict[str, Any]]:
             
             if not is_correct:
                 _print_mismatch_info(
-                    line_num, target, prediction, text[-50:] if len(text) > 50 else text
+                    line_num, target, prediction, text[-50:] if len(text) > 50 else text, verbose=verbose
                 )
             
             return accuracy, detail
@@ -596,7 +602,8 @@ def process_line(record: dict[str, Any]) -> tuple[float, dict[str, Any]]:
                 target,
                 prediction_text,
                 text[-50:] if len(text) > 50 else text,
-                metric_name
+                metric_name,
+                verbose=verbose
             )
         
         return accuracy, detail
@@ -610,6 +617,7 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser(description="评估模型输出结果")
     parser.add_argument("file_path", type=str, help="输入 JSONL 文件路径")
+    parser.add_argument("--verbose", "-v", action="store_true", default=False, help="是否输出打印信息（默认不输出）")
     args = parser.parse_args()
 
     file = args.file_path
@@ -631,7 +639,7 @@ def main() -> None:
                 try:
                     record = json.loads(line)
                     total_count += 1
-                    acc, detail = process_line(record)
+                    acc, detail = process_line(record, verbose=args.verbose)
                     results.append(detail)
                     total_accuracy += acc
                     if acc == 1.0:
@@ -669,11 +677,12 @@ def main() -> None:
         return
     
     # 打印统计信息
-    print(f"\n总题目数: {total_count}")
-    print(f"正确数: {correct_count}")
-    print(f"错误数: {total_count - correct_count}")
-    print(f"总体正确率: {overall_accuracy:.4f} ({overall_accuracy * 100:.2f}%)")
-    print(f"\n详细结果已保存到: {output_file}")
+    if args.verbose:
+        print(f"\n总题目数: {total_count}")
+        print(f"正确数: {correct_count}")
+        print(f"错误数: {total_count - correct_count}")
+        print(f"总体正确率: {overall_accuracy:.4f} ({overall_accuracy * 100:.2f}%)")
+        print(f"\n详细结果已保存到: {output_file}")
 
 
 if __name__ == "__main__":

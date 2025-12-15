@@ -79,6 +79,33 @@ def _extract_tools_from_messages(messages: List[Dict[str, Any]]) -> List[str]:
     return tools
 
 
+def _find_matching_question(question: str, enhancement_paths: Dict[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    在 enhancement_paths 中查找匹配的 question（使用子串匹配）
+    
+    Args:
+        question: 要匹配的 question 字符串
+        enhancement_paths: 增强路径映射字典
+        
+    Returns:
+        匹配的路径信息，如果未找到则返回 None
+    """
+    question = question.strip()
+    if not question:
+        return None
+    
+    # 先尝试精确匹配
+    if question in enhancement_paths:
+        return enhancement_paths[question]
+    
+    # 尝试子串匹配：A in B 或 B in A
+    for key, path_info in enhancement_paths.items():
+        if question in key or key in question:
+            return path_info
+    
+    return None
+
+
 def load_enhancement_paths(dump_file: str) -> Dict[str, Dict[str, Any]]:
     """
     从 thirdgen_dump.jsonl 加载每个问题的增强路径类型和工具信息
@@ -101,7 +128,7 @@ def load_enhancement_paths(dump_file: str) -> Dict[str, Dict[str, Any]]:
             
             try:
                 data = json.loads(line.strip())
-                question = data.get(JSON_FIELD_QUESTION, '')
+                question = data.get(JSON_FIELD_QUESTION, '').strip()
                 if not question:
                     continue
                 
@@ -109,24 +136,28 @@ def load_enhancement_paths(dump_file: str) -> Dict[str, Dict[str, Any]]:
                 has_knowledge = JSON_FIELD_KNOWLEDGE in data and data[JSON_FIELD_KNOWLEDGE] is not None
                 
                 # 确定增强路径：tool 优先于 knowledge
+                path_info = {}
                 if has_tool:
                     tool_data = data.get(JSON_FIELD_TOOL, {})
                     messages = tool_data.get(JSON_FIELD_MESSAGES, [])
                     tools = _extract_tools_from_messages(messages)
-                    paths[question] = {
+                    path_info = {
                         JSON_FIELD_PATH_TYPE: PATH_TYPE_TOOL,
                         JSON_FIELD_TOOLS: tools
                     }
                 elif has_knowledge:
-                    paths[question] = {
+                    path_info = {
                         JSON_FIELD_PATH_TYPE: PATH_TYPE_KNOWLEDGE,
                         JSON_FIELD_TOOLS: []
                     }
                 else:
-                    paths[question] = {
+                    path_info = {
                         JSON_FIELD_PATH_TYPE: PATH_TYPE_UNKNOWN,
                         JSON_FIELD_TOOLS: []
                     }
+                
+                # 直接使用 question 作为 key
+                paths[question] = path_info
                     
             except json.JSONDecodeError:
                 continue
@@ -407,14 +438,13 @@ def match_and_calculate(
             
             try:
                 record = json.loads(line.strip())
-                question = record.get(JSON_FIELD_QUESTION, '')
+                question = record.get(JSON_FIELD_QUESTION, '').strip()
                 line_in_dataset = record.get(JSON_FIELD_LINE_IN_DATASET, 0)
                 
-                # 匹配增强路径
-                path_info = enhancement_paths.get(
-                    question,
-                    {JSON_FIELD_PATH_TYPE: PATH_TYPE_UNKNOWN, JSON_FIELD_TOOLS: []}
-                )
+                # 匹配增强路径（使用子串匹配）
+                path_info = _find_matching_question(question, enhancement_paths)
+                if path_info is None:
+                    path_info = {JSON_FIELD_PATH_TYPE: PATH_TYPE_UNKNOWN, JSON_FIELD_TOOLS: []}
                 path_type = path_info.get(JSON_FIELD_PATH_TYPE, PATH_TYPE_UNKNOWN)
                 tools_used = path_info.get(JSON_FIELD_TOOLS, [])
                 

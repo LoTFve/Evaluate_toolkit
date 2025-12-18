@@ -517,7 +517,7 @@ def process_line(record: dict[str, Any], verbose: bool = False) -> tuple[float, 
         if len(target_str) == 1:
             # Single choice question
             prediction = parse_answers(text)
-            is_correct = target in prediction
+            is_correct = target_str in prediction
             accuracy = 1.0 if is_correct else 0.0
             
             detail = {
@@ -532,7 +532,7 @@ def process_line(record: dict[str, Any], verbose: bool = False) -> tuple[float, 
             
             if not is_correct:
                 _print_mismatch_info(
-                    line_num, target, prediction, text[-50:] if len(text) > 50 else text, verbose=verbose
+                    line_num, target_str, prediction, text[-50:] if len(text) > 50 else text, verbose=verbose
                 )
             
             return accuracy, detail

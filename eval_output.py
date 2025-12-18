@@ -503,13 +503,19 @@ def process_line(record: dict[str, Any], verbose: bool = False) -> tuple[float, 
     
     line_num = record.get("lineInDataset", "未知")
     
-    dataset = record.get("dataset", "").lower()
-    is_mcq = "nomcq" not in dataset and "mcq" in dataset
+    target_str = str(target)
+    is_mcq = False
+    
+    if len(target_str) == 1 and target_str.isalpha() and target_str.isupper() and 'A' <= target_str <= 'Z':
+        is_mcq = True
+    elif ',' in target_str:
+        parts = target_str.split(',')
+        if all(len(p) == 1 and p.isalpha() and p.isupper() and 'A' <= p <= 'Z' for p in parts):
+            is_mcq = True
     
     if is_mcq:
-        # MCQ 题目（包含单选和多选）
-        if len(target) == 1:
-            # 单选题
+        if len(target_str) == 1:
+            # Single choice question
             prediction = parse_answers(text)
             is_correct = target in prediction
             accuracy = 1.0 if is_correct else 0.0
@@ -520,6 +526,7 @@ def process_line(record: dict[str, Any], verbose: bool = False) -> tuple[float, 
                 "prediction": list(prediction),
                 "accuracy": accuracy,
                 "is_correct": is_correct,
+                "question_type": "single_choice",
                 "answer_text_last50": text[-50:] if len(text) > 50 else text
             }
             
@@ -530,13 +537,13 @@ def process_line(record: dict[str, Any], verbose: bool = False) -> tuple[float, 
             
             return accuracy, detail
         else:
-            # 多选题
+            # Multiple choice question
             prediction = parse_answers(text, DEFAULT_ANSWER_LENGTH, multiple_correct=True)
             den = len(
-                parse_answers(f"ANSWER: {target}", DEFAULT_ANSWER_LENGTH, multiple_correct=True)
+                parse_answers(f"ANSWER: {target_str}", DEFAULT_ANSWER_LENGTH, multiple_correct=True)
             )
             if den == 0:
-                msg = f"Target contains no options. target: {target}. This answer will be viewed as incorrect. (lineInDataset: {line_num})"
+                msg = f"Target contains no options. target: {target_str}. This answer will be viewed as incorrect. (lineInDataset: {line_num})"
                 logger.warning(msg)
                 return 0.0, {
                     "lineInDataset": line_num,
@@ -544,11 +551,12 @@ def process_line(record: dict[str, Any], verbose: bool = False) -> tuple[float, 
                     "prediction": list(prediction),
                     "accuracy": 0.0,
                     "is_correct": False,
+                    "question_type": "multiple_choice",
                     "error": msg
                 }
             num = 0
             for candidate in prediction:
-                if candidate in target:
+                if candidate in target_str:
                     num += 1
             accuracy = num / den
             
@@ -558,6 +566,7 @@ def process_line(record: dict[str, Any], verbose: bool = False) -> tuple[float, 
                 "prediction": list(prediction),
                 "accuracy": accuracy,
                 "is_correct": accuracy == 1.0,
+                "question_type": "multiple_choice",
                 "partial_correct": num,
                 "total_expected": den,
                 "answer_text_last50": text[-50:] if len(text) > 50 else text

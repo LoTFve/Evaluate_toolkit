@@ -28,8 +28,10 @@ from utils.data_loader import (
 from utils.excel_exporter import export_to_excel
 from utils.formatter import print_statistics_table
 from utils.json_saver import save_output_file
-from utils.matcher import find_matching_question
-from utils.result_builder import create_result_record
+from utils.data_processor import (
+    create_result_record,
+    find_matching_question,
+)
 from utils.statistics_manager import (
     create_stats_dict,
     update_statistics,

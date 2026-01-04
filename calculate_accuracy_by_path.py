@@ -3,18 +3,25 @@
 匹配 result.jsonl 中的答案
 使用 eval_output.py 的逻辑计算每道题是否正确
 """
+import argparse
 import json
 import os
 import re
-import argparse
 from collections import defaultdict
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Any, Dict, List, Optional, Tuple
+
 from eval_output import process_line as eval_process_line
 
 try:
     import pandas as pd
     from openpyxl import load_workbook
-    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.styles import (
+        Alignment,
+        Border,
+        Font,
+        PatternFill,
+        Side,
+    )
     EXCEL_AVAILABLE = True
 except ImportError:
     EXCEL_AVAILABLE = False
@@ -211,8 +218,14 @@ def load_enhancement_paths(dump_file: str) -> Dict[str, Dict[str, Any]]:
                 if not question:
                     continue
                 
-                has_tool = JSON_FIELD_TOOL in data and data[JSON_FIELD_TOOL] is not None
-                has_knowledge = JSON_FIELD_KNOWLEDGE in data and data[JSON_FIELD_KNOWLEDGE] is not None
+                has_tool = (
+                    JSON_FIELD_TOOL in data
+                    and data[JSON_FIELD_TOOL] is not None
+                )
+                has_knowledge = (
+                    JSON_FIELD_KNOWLEDGE in data
+                    and data[JSON_FIELD_KNOWLEDGE] is not None
+                )
                 
                 # 确定增强路径：tool 优先于 knowledge
                 path_info = {}
@@ -367,7 +380,16 @@ def _update_statistics(
 
 
 def _calculate_accuracy_value(correct: int, total: int) -> float:
-    """计算正确率"""
+    """
+    计算正确率
+    
+    Args:
+        correct: 正确数量
+        total: 总数量
+        
+    Returns:
+        正确率（0.0 到 1.0），如果总数为0则返回0.0
+    """
     return correct / total if total > 0 else 0.0
 
 
@@ -387,7 +409,17 @@ def _calculate_path_accuracies(stats_by_path: Dict[str, Dict[str, Any]]) -> None
 
 
 def _format_stat_string(correct: int, total: int, accuracy: float) -> str:
-    """格式化统计字符串：正确数/总数 (正确率%)"""
+    """
+    格式化统计字符串：正确数/总数 (正确率%)
+    
+    Args:
+        correct: 正确数量
+        total: 总数量
+        accuracy: 正确率（0.0 到 1.0）
+        
+    Returns:
+        格式化后的字符串，格式为 "正确数/总数 (正确率%)"，如果总数为0则返回 "-"
+    """
     if total > 0:
         return f"{correct}/{total} ({accuracy*100:.2f}%)"
     return "-"
@@ -432,44 +464,74 @@ def _print_statistics_table(stats_by_path: Dict[str, Dict[str, Any]]) -> Tuple[i
         
         # 格式化并打印
         mcq_str = _format_stat_string(
-            stats[FIELD_MCQ_CORRECT], 
-            stats[FIELD_MCQ_TOTAL], 
+            stats[FIELD_MCQ_CORRECT],
+            stats[FIELD_MCQ_TOTAL],
             stats.get(FIELD_MCQ_ACCURACY, 0.0)
         )
         yesno_str = _format_stat_string(
-            stats[FIELD_YESNO_CORRECT], 
-            stats[FIELD_YESNO_TOTAL], 
+            stats[FIELD_YESNO_CORRECT],
+            stats[FIELD_YESNO_TOTAL],
             stats.get(FIELD_YESNO_ACCURACY, 0.0)
         )
         numeric_str = _format_stat_string(
-            stats[FIELD_NUMERIC_CORRECT], 
-            stats[FIELD_NUMERIC_TOTAL], 
+            stats[FIELD_NUMERIC_CORRECT],
+            stats[FIELD_NUMERIC_TOTAL],
             stats.get(FIELD_NUMERIC_ACCURACY, 0.0)
         )
         total_str = _format_stat_string(
-            stats[FIELD_CORRECT], 
-            stats[FIELD_TOTAL], 
+            stats[FIELD_CORRECT],
+            stats[FIELD_TOTAL],
             stats[FIELD_ACCURACY]
         )
         
-        print(f"{path_type:<{PATH_NAME_WIDTH}} {mcq_str:<{NUMBER_WIDTH}} "
-              f"{yesno_str:<{NUMBER_WIDTH}} {numeric_str:<{NUMBER_WIDTH}} {total_str:<{NUMBER_WIDTH}}")
+        print(
+            f"{path_type:<{PATH_NAME_WIDTH}} {mcq_str:<{NUMBER_WIDTH}} "
+            f"{yesno_str:<{NUMBER_WIDTH}} {numeric_str:<{NUMBER_WIDTH}} "
+            f"{total_str:<{NUMBER_WIDTH}}"
+        )
     
     # 打印总计行
     print("-" * SEPARATOR_WIDTH)
     if totals[FIELD_TOTAL] > 0:
-        overall_accuracy = _calculate_accuracy_value(totals[FIELD_CORRECT], totals[FIELD_TOTAL])
-        mcq_overall_accuracy = _calculate_accuracy_value(totals[FIELD_MCQ_CORRECT], totals[FIELD_MCQ_TOTAL])
-        yesno_overall_accuracy = _calculate_accuracy_value(totals[FIELD_YESNO_CORRECT], totals[FIELD_YESNO_TOTAL])
-        numeric_overall_accuracy = _calculate_accuracy_value(totals[FIELD_NUMERIC_CORRECT], totals[FIELD_NUMERIC_TOTAL])
+        overall_accuracy = _calculate_accuracy_value(
+            totals[FIELD_CORRECT], totals[FIELD_TOTAL]
+        )
+        mcq_overall_accuracy = _calculate_accuracy_value(
+            totals[FIELD_MCQ_CORRECT], totals[FIELD_MCQ_TOTAL]
+        )
+        yesno_overall_accuracy = _calculate_accuracy_value(
+            totals[FIELD_YESNO_CORRECT], totals[FIELD_YESNO_TOTAL]
+        )
+        numeric_overall_accuracy = _calculate_accuracy_value(
+            totals[FIELD_NUMERIC_CORRECT], totals[FIELD_NUMERIC_TOTAL]
+        )
         
-        mcq_str = _format_stat_string(totals[FIELD_MCQ_CORRECT], totals[FIELD_MCQ_TOTAL], mcq_overall_accuracy)
-        yesno_str = _format_stat_string(totals[FIELD_YESNO_CORRECT], totals[FIELD_YESNO_TOTAL], yesno_overall_accuracy)
-        numeric_str = _format_stat_string(totals[FIELD_NUMERIC_CORRECT], totals[FIELD_NUMERIC_TOTAL], numeric_overall_accuracy)
-        total_str = _format_stat_string(totals[FIELD_CORRECT], totals[FIELD_TOTAL], overall_accuracy)
+        mcq_str = _format_stat_string(
+            totals[FIELD_MCQ_CORRECT],
+            totals[FIELD_MCQ_TOTAL],
+            mcq_overall_accuracy
+        )
+        yesno_str = _format_stat_string(
+            totals[FIELD_YESNO_CORRECT],
+            totals[FIELD_YESNO_TOTAL],
+            yesno_overall_accuracy
+        )
+        numeric_str = _format_stat_string(
+            totals[FIELD_NUMERIC_CORRECT],
+            totals[FIELD_NUMERIC_TOTAL],
+            numeric_overall_accuracy
+        )
+        total_str = _format_stat_string(
+            totals[FIELD_CORRECT],
+            totals[FIELD_TOTAL],
+            overall_accuracy
+        )
         
-        print(f"{'总计':<{PATH_NAME_WIDTH}} {mcq_str:<{NUMBER_WIDTH}} "
-              f"{yesno_str:<{NUMBER_WIDTH}} {numeric_str:<{NUMBER_WIDTH}} {total_str:<{NUMBER_WIDTH}}")
+        print(
+            f"{'总计':<{PATH_NAME_WIDTH}} {mcq_str:<{NUMBER_WIDTH}} "
+            f"{yesno_str:<{NUMBER_WIDTH}} {numeric_str:<{NUMBER_WIDTH}} "
+            f"{total_str:<{NUMBER_WIDTH}}"
+        )
     print("=" * SEPARATOR_WIDTH)
     
     return totals[FIELD_CORRECT], totals[FIELD_TOTAL]
@@ -520,8 +582,24 @@ def _build_statistics_detail(
         correct = stats[FIELD_CORRECT]
         incorrect = total - correct
         
-        def _build_accuracy_entry(stats_dict: Dict[str, Any], correct_key: str, total_key: str, accuracy_key: str) -> Dict[str, Any]:
-            """构建正确率统计条目"""
+        def _build_accuracy_entry(
+            stats_dict: Dict[str, Any],
+            correct_key: str,
+            total_key: str,
+            accuracy_key: str
+        ) -> Dict[str, Any]:
+            """
+            构建正确率统计条目
+            
+            Args:
+                stats_dict: 统计字典
+                correct_key: 正确数字段名
+                total_key: 总数字段名
+                accuracy_key: 正确率字段名
+                
+            Returns:
+                包含正确数、总数、正确率和百分比格式的字典
+            """
             correct = stats_dict[correct_key]
             total = stats_dict[total_key]
             accuracy = stats_dict.get(accuracy_key, 0.0)
@@ -529,20 +607,47 @@ def _build_statistics_detail(
                 correct_key: correct,
                 total_key: total,
                 accuracy_key: accuracy,
-                f'{accuracy_key}_percentage': f"{accuracy*100:.2f}%" if total > 0 else "0.00%"
+                f'{accuracy_key}_percentage': (
+                    f"{accuracy*100:.2f}%" if total > 0 else "0.00%"
+                )
             }
         
         statistics_detail[path_type] = {
             FIELD_CORRECT: correct,
             FIELD_TOTAL: total,
             FIELD_ACCURACY: stats[FIELD_ACCURACY],
-            'accuracy_percentage': f"{stats[FIELD_ACCURACY]*100:.2f}%",
+            'accuracy_percentage': (
+                f"{stats[FIELD_ACCURACY]*100:.2f}%"
+            ),
             'incorrect': incorrect,
-            'incorrect_percentage': f"{incorrect/total*100:.2f}%" if total > 0 else "0.00%",
-            **_build_accuracy_entry(stats, FIELD_MCQ_CORRECT, FIELD_MCQ_TOTAL, FIELD_MCQ_ACCURACY),
-            **_build_accuracy_entry(stats, FIELD_NONMCQ_CORRECT, FIELD_NONMCQ_TOTAL, FIELD_NONMCQ_ACCURACY),
-            **_build_accuracy_entry(stats, FIELD_YESNO_CORRECT, FIELD_YESNO_TOTAL, FIELD_YESNO_ACCURACY),
-            **_build_accuracy_entry(stats, FIELD_NUMERIC_CORRECT, FIELD_NUMERIC_TOTAL, FIELD_NUMERIC_ACCURACY),
+            'incorrect_percentage': (
+                f"{incorrect/total*100:.2f}%"
+                if total > 0 else "0.00%"
+            ),
+            **_build_accuracy_entry(
+                stats,
+                FIELD_MCQ_CORRECT,
+                FIELD_MCQ_TOTAL,
+                FIELD_MCQ_ACCURACY
+            ),
+            **_build_accuracy_entry(
+                stats,
+                FIELD_NONMCQ_CORRECT,
+                FIELD_NONMCQ_TOTAL,
+                FIELD_NONMCQ_ACCURACY
+            ),
+            **_build_accuracy_entry(
+                stats,
+                FIELD_YESNO_CORRECT,
+                FIELD_YESNO_TOTAL,
+                FIELD_YESNO_ACCURACY
+            ),
+            **_build_accuracy_entry(
+                stats,
+                FIELD_NUMERIC_CORRECT,
+                FIELD_NUMERIC_TOTAL,
+                FIELD_NUMERIC_ACCURACY
+            ),
             FIELD_LINE_NUMBERS: line_numbers,
             FIELD_CORRECT_LINE_NUMBERS: correct_line_numbers,
             FIELD_INCORRECT_LINE_NUMBERS: incorrect_line_numbers
@@ -569,7 +674,9 @@ def _save_output_file(
         total_count: 总数量
     """
     statistics_detail = _build_statistics_detail(stats_by_path)
-    overall_accuracy = total_correct / total_count if total_count > 0 else 0.0
+    overall_accuracy = (
+        total_correct / total_count if total_count > 0 else 0.0
+    )
     
     output_data = {
         'summary': {
@@ -577,7 +684,10 @@ def _save_output_file(
             'total_correct': total_correct,
             'total_incorrect': total_count - total_correct,
             'overall_accuracy': overall_accuracy,
-            'overall_accuracy_percentage': f"{overall_accuracy*100:.2f}%" if total_count > 0 else "0.00%"
+            'overall_accuracy_percentage': (
+                f"{overall_accuracy*100:.2f}%"
+                if total_count > 0 else "0.00%"
+            )
         },
         'statistics_by_path': statistics_detail,
         'results': results
@@ -606,7 +716,10 @@ def _export_to_excel(
         Excel文件路径，如果导出失败则返回None
     """
     if not EXCEL_AVAILABLE:
-        print("警告: 未安装 pandas 或 openpyxl，无法导出Excel文件。请运行: pip install pandas openpyxl")
+        print(
+            "警告: 未安装 pandas 或 openpyxl，无法导出Excel文件。"
+            "请运行: pip install pandas openpyxl"
+        )
         return None
     
     # 计算总计
@@ -632,23 +745,23 @@ def _export_to_excel(
         
         # 格式化数据
         mcq_str = _format_stat_string(
-            stats[FIELD_MCQ_CORRECT], 
-            stats[FIELD_MCQ_TOTAL], 
+            stats[FIELD_MCQ_CORRECT],
+            stats[FIELD_MCQ_TOTAL],
             stats.get(FIELD_MCQ_ACCURACY, 0.0)
         )
         yesno_str = _format_stat_string(
-            stats[FIELD_YESNO_CORRECT], 
-            stats[FIELD_YESNO_TOTAL], 
+            stats[FIELD_YESNO_CORRECT],
+            stats[FIELD_YESNO_TOTAL],
             stats.get(FIELD_YESNO_ACCURACY, 0.0)
         )
         numeric_str = _format_stat_string(
-            stats[FIELD_NUMERIC_CORRECT], 
-            stats[FIELD_NUMERIC_TOTAL], 
+            stats[FIELD_NUMERIC_CORRECT],
+            stats[FIELD_NUMERIC_TOTAL],
             stats.get(FIELD_NUMERIC_ACCURACY, 0.0)
         )
         total_str = _format_stat_string(
-            stats[FIELD_CORRECT], 
-            stats[FIELD_TOTAL], 
+            stats[FIELD_CORRECT],
+            stats[FIELD_TOTAL],
             stats[FIELD_ACCURACY]
         )
         
@@ -662,15 +775,39 @@ def _export_to_excel(
     
     # 添加总计行
     if totals[FIELD_TOTAL] > 0:
-        overall_accuracy = _calculate_accuracy_value(totals[FIELD_CORRECT], totals[FIELD_TOTAL])
-        mcq_overall_accuracy = _calculate_accuracy_value(totals[FIELD_MCQ_CORRECT], totals[FIELD_MCQ_TOTAL])
-        yesno_overall_accuracy = _calculate_accuracy_value(totals[FIELD_YESNO_CORRECT], totals[FIELD_YESNO_TOTAL])
-        numeric_overall_accuracy = _calculate_accuracy_value(totals[FIELD_NUMERIC_CORRECT], totals[FIELD_NUMERIC_TOTAL])
+        overall_accuracy = _calculate_accuracy_value(
+            totals[FIELD_CORRECT], totals[FIELD_TOTAL]
+        )
+        mcq_overall_accuracy = _calculate_accuracy_value(
+            totals[FIELD_MCQ_CORRECT], totals[FIELD_MCQ_TOTAL]
+        )
+        yesno_overall_accuracy = _calculate_accuracy_value(
+            totals[FIELD_YESNO_CORRECT], totals[FIELD_YESNO_TOTAL]
+        )
+        numeric_overall_accuracy = _calculate_accuracy_value(
+            totals[FIELD_NUMERIC_CORRECT], totals[FIELD_NUMERIC_TOTAL]
+        )
         
-        mcq_str = _format_stat_string(totals[FIELD_MCQ_CORRECT], totals[FIELD_MCQ_TOTAL], mcq_overall_accuracy)
-        yesno_str = _format_stat_string(totals[FIELD_YESNO_CORRECT], totals[FIELD_YESNO_TOTAL], yesno_overall_accuracy)
-        numeric_str = _format_stat_string(totals[FIELD_NUMERIC_CORRECT], totals[FIELD_NUMERIC_TOTAL], numeric_overall_accuracy)
-        total_str = _format_stat_string(totals[FIELD_CORRECT], totals[FIELD_TOTAL], overall_accuracy)
+        mcq_str = _format_stat_string(
+            totals[FIELD_MCQ_CORRECT],
+            totals[FIELD_MCQ_TOTAL],
+            mcq_overall_accuracy
+        )
+        yesno_str = _format_stat_string(
+            totals[FIELD_YESNO_CORRECT],
+            totals[FIELD_YESNO_TOTAL],
+            yesno_overall_accuracy
+        )
+        numeric_str = _format_stat_string(
+            totals[FIELD_NUMERIC_CORRECT],
+            totals[FIELD_NUMERIC_TOTAL],
+            numeric_overall_accuracy
+        )
+        total_str = _format_stat_string(
+            totals[FIELD_CORRECT],
+            totals[FIELD_TOTAL],
+            overall_accuracy
+        )
         
         data_rows.append({
             '增强路径': '总计',
@@ -688,14 +825,18 @@ def _export_to_excel(
         excel_file = '各增强路径的正确率统计.xlsx'
     
     # 保存为Excel文件
-    df.to_excel(excel_file, index=False, sheet_name='正确率统计')
+    df.to_excel(
+        excel_file, index=False, sheet_name='正确率统计'
+    )
     
     # 使用openpyxl美化表格
     wb = load_workbook(excel_file)
     ws = wb.active
     
     # 设置标题样式
-    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_fill = PatternFill(
+        start_color="366092", end_color="366092", fill_type="solid"
+    )
     header_font = Font(bold=True, color="FFFFFF", size=12)
     header_alignment = Alignment(horizontal="center", vertical="center")
     
@@ -716,7 +857,9 @@ def _export_to_excel(
     
     # 设置数据行样式
     data_font = Font(size=11)
-    data_alignment = Alignment(horizontal="center", vertical="center")
+    data_alignment = Alignment(
+        horizontal="center", vertical="center"
+    )
     
     # 应用数据样式
     for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
@@ -766,11 +909,14 @@ def match_and_calculate(
     results: List[Dict[str, Any]] = []
     stats_by_path: Dict[str, Dict[str, Any]] = defaultdict(_create_default_stat_entry)
     
-    # 加载 test.jsonl 文件中的 is_mcq 和填空题类型映射（通过行号匹配）
+    # 加载 test.jsonl 文件中的 is_mcq 和填空题类型映射
+    # （通过行号匹配）
     is_mcq_map: Dict[int, bool] = {}
     nonmcq_type_map: Dict[int, Optional[str]] = {}
     if test_file and os.path.exists(test_file):
-        is_mcq_map, nonmcq_type_map = load_test_is_mcq_mapping(test_file)
+        is_mcq_map, nonmcq_type_map = load_test_is_mcq_mapping(
+            test_file
+        )
     
     with open(result_file, 'r', encoding='utf-8') as f:
         for line in f:
@@ -782,14 +928,26 @@ def match_and_calculate(
                 question = record.get(JSON_FIELD_QUESTION, '').strip()
                 line_in_dataset = record.get(JSON_FIELD_LINE_IN_DATASET, 0)
                 
-                # 从 test.jsonl 中获取 is_mcq 和填空题类型信息（通过行号匹配）
-                is_mcq = is_mcq_map.get(line_in_dataset) if is_mcq_map else None
-                nonmcq_type = nonmcq_type_map.get(line_in_dataset) if nonmcq_type_map else None
+                # 从 test.jsonl 中获取 is_mcq 和填空题类型信息
+                # （通过行号匹配）
+                is_mcq = (
+                    is_mcq_map.get(line_in_dataset)
+                    if is_mcq_map else None
+                )
+                nonmcq_type = (
+                    nonmcq_type_map.get(line_in_dataset)
+                    if nonmcq_type_map else None
+                )
                 
                 # 匹配增强路径（使用子串匹配）
-                path_info = _find_matching_question(question, enhancement_paths)
+                path_info = _find_matching_question(
+                    question, enhancement_paths
+                )
                 if path_info is None:
-                    path_info = {JSON_FIELD_PATH_TYPE: PATH_TYPE_UNKNOWN, JSON_FIELD_TOOLS: []}
+                    path_info = {
+                        JSON_FIELD_PATH_TYPE: PATH_TYPE_UNKNOWN,
+                        JSON_FIELD_TOOLS: []
+                    }
                 path_type = path_info.get(JSON_FIELD_PATH_TYPE, PATH_TYPE_UNKNOWN)
                 tools_used = path_info.get(JSON_FIELD_TOOLS, [])
                 
@@ -802,7 +960,14 @@ def match_and_calculate(
                 results.append(result)
                 
                 # 更新统计（传入 is_mcq 和填空题类型信息）
-                _update_statistics(stats_by_path, path_type, line_in_dataset, is_correct, is_mcq, nonmcq_type)
+                _update_statistics(
+                    stats_by_path,
+                    path_type,
+                    line_in_dataset,
+                    is_correct,
+                    is_mcq,
+                    nonmcq_type
+                )
                 
             except json.JSONDecodeError as e:
                 print(f"解析错误 (lineInDataset: {line_in_dataset}): {e}")
@@ -844,7 +1009,10 @@ def _generate_output_file_path(result_file: str) -> str:
 def main() -> None:
     """主函数：解析命令行参数并执行计算"""
     parser = argparse.ArgumentParser(
-        description="根据 thirdgen_dump.jsonl 获取每个问题的增强路径类型，匹配 result.jsonl 中的答案，计算正确率"
+        description=(
+            "根据 thirdgen_dump.jsonl 获取每个问题的增强路径类型，"
+            "匹配 result.jsonl 中的答案，计算正确率"
+        )
     )
     parser.add_argument(
         "--dump_file",
@@ -882,14 +1050,26 @@ def main() -> None:
     
     # 加载题目类型信息（如果文件存在）
     if args.test_file and os.path.exists(args.test_file):
-        print(f"正在加载 test.jsonl 文件（用于区分选择题和填空题类型）...")
-        is_mcq_map, nonmcq_type_map = load_test_is_mcq_mapping(args.test_file)
+        print(
+            "正在加载 test.jsonl 文件（用于区分选择题和填空题类型）..."
+        )
+        is_mcq_map, nonmcq_type_map = load_test_is_mcq_mapping(
+            args.test_file
+        )
         print(f"已加载 {len(is_mcq_map)} 条记录的 is_mcq 信息")
-        print(f"已加载 {len(nonmcq_type_map)} 条填空题的类型信息")
+        print(
+            f"已加载 {len(nonmcq_type_map)} 条填空题的类型信息"
+        )
     
     # 匹配并计算正确率
     print("\n正在匹配并计算正确率...")
-    match_and_calculate(args.result_file, enhancement_paths, output_file, args.test_file, args.excel)
+    match_and_calculate(
+        args.result_file,
+        enhancement_paths,
+        output_file,
+        args.test_file,
+        args.excel
+    )
 
 
 if __name__ == "__main__":
